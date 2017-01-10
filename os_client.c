@@ -14,6 +14,7 @@
 // To do list:
 // 1. init all variables at start
 // 2.  what does Client - instruction 5 means? 
+// 3. read comments carefully
 void main(int argc, char *argv[]){
 
 	if (argc != 5){
@@ -37,7 +38,7 @@ void main(int argc, char *argv[]){
 	char * IN = argv[3];
 
 	// check if IN file exists 
-   	int IN_fd = open(IN, O_RDWR); // check flag
+   	int IN_fd = open(IN, O_RDWR); // check flag - maybe change to read only?
 	
    	if( IN_fd < 0 ){
         	printf( "Error opening IN file : %s\n", strerror(errno) );
@@ -47,7 +48,7 @@ void main(int argc, char *argv[]){
 	char * OUT = argv[4];
 
 	// create OUT file: 
-	int OUT_fd = open(OUT, O_RDWR | O_CREAT | O_TRUNC,0777 ); // opens/creates an output file 
+	int OUT_fd = open(OUT, O_RDWR | O_CREAT | O_TRUNC,0777 ); // opens/creates an output file - maybe change to write only?
 	if (fd_output <0){ // check for error 
 			printf("Error opening output file: %s\n", strerror(errno));
 			exit(errno); 
@@ -62,7 +63,7 @@ void main(int argc, char *argv[]){
     memset(clientBuffer, '0',sizeof(clientBuffer)); // clear buffer
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
     // AF_INET means ipv4, SOCK_STREAM means reliable, 
-    // 0 means that the operating system chose TCP for sock_stream
+    // 0 means that the operating system chooses TCP for sock_stream
         printf("\n Error : Could not create socket \n");
         exit(1);
 	} 
@@ -91,11 +92,11 @@ void main(int argc, char *argv[]){
 	} 
 
 	/* print socket details again */
-
+	// to delete
     if ( getsockname(sockfd, (struct sockaddr*)&my_addr, &addrsize) != 0){
 	 printf("\n Error in getsockname(): %s \n", strerror(errno));
        exit(errno);
-    } 
+    }
     //returns the address of the peer connected to the socket sockfd, in the buffer pointed to by peer_addr
     if (getpeername(sockfd, (struct sockaddr*)&peer_addr, &addrsize) != 0){
      printf("\n Error in getsockname(): %s \n", strerror(errno));
