@@ -17,7 +17,7 @@
 // 1. init all variables at start
 // 2. what does Client - instruction 5 means? What to do with instruction 2? 
 // 3. read comments carefully
-// 4. clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
+// 4. DONE >> clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
 // 5. Do we need to use perror?
 // 6. Client before server? 
 
@@ -46,12 +46,13 @@ void main(int argc, char *argv[]){
 	int total_bytes_written_to_server = 0;
 	int total_bytes_written_to_out = 0;
     char clientBuffer[MAX];
+    char sendBuffer[MAX];
     struct sockaddr_in serv_addr;  // contain the address of the server to which we want to connect
 
     socklen_t addrsize = sizeof(struct sockaddr_in );
 
     // define the program arguments:
-	IP = argv[1];
+	IP = argv[1]; // where to set it? now changed field of inet_addr to hardcoded
 
 	errno = 0;
 	PORT = strtol(argv[2], &ptr, 10);
@@ -59,7 +60,6 @@ void main(int argc, char *argv[]){
 		printf("Error converting PORT from string to short: %s\n", strerror(errno));
 		exit(errno);
 	}
-	printf("The port that was entered is:%hi\n", PORT);
 
 	IN = argv[3];
 
@@ -83,6 +83,7 @@ void main(int argc, char *argv[]){
 	
 
     memset(clientBuffer, '0',sizeof(clientBuffer)); // clear client buffer
+    memset(sendBuffer, '0',sizeof(sendBuffer)); 
 
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
     // AF_INET means ipv4, SOCK_STREAM means reliable, 
@@ -101,7 +102,7 @@ void main(int argc, char *argv[]){
 	printf("Client: connecting...\n"); // delete
 
 	  // connect socket to the above address 
-    if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0) {
+    if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
        printf("\n Error : Connect Failed. %s \n", strerror(errno));
        exit(errno);
 	} 
@@ -134,45 +135,21 @@ void main(int argc, char *argv[]){
 				// increment our counter
 				total_bytes_written_to_server = total_bytes_written_to_server + bytes_written_to_server;
 
-			} // finished writing everything to server
-	
-	
-		} // nothing else to read from IN file
-	
-	/*while ( (bytes_read_from_in = read(IN_fd, clientBuffer, sizeof(clientBuffer)-1))> 0){ 
-		clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
-		bytes_written_to_server = write(sockfd, clientBuffer, bytes_read_from_in); // write what you read from IN file
-		if ( bytes_written_to_server < 0){
-				printf("Error while writing to server through socket: %s\n", strerror(errno));
-				exit(errno);
-		}
-	}
+			} // finished writing to server the current buffer
 
-	if (bytes_read_from_in < 0){ // didnt reach EOF, its an error
-		printf("Error while reading from IN file: %s\n", strerror(errno));
-		exit(errno);
-	
-	}*/
-
-	// read from server the ecrypted data + write the encrypted data to OUT file
-
-		while (1){ // read until we have nothing to read from server
-
-			bytes_read_from_server = read(sockfd, clientBuffer, MAX); // try reading from IN
+			// now read encrypted data from server
+			bytes_read_from_server = read(sockfd, sendBuffer, MAX); // try reading from IN
 
 			if (bytes_read_from_server < 0){ // error reading from client
 				printf("Error reading from server: %s\n", strerror(errno));
 				exit(errno); 
 			}
-
-			else if (bytes_read_from_server == 0){ // finish reading - THIS WILL END THE WHILE LOOP
-				break;
-			}
 			
+			// write encryped data to out file
 			total_bytes_written_to_out = 0; // sum the bytes we write - make sure we wrote everything
 			while (total_bytes_written_to_out < bytes_read_from_server) {
 				
-				bytes_written_to_out = write(sockfd, clientBuffer + total_bytes_written_to_out, bytes_read_from_server - total_bytes_written_to_out);
+				bytes_written_to_out = write(OUT_fd, sendBuffer + total_bytes_written_to_out, bytes_read_from_server - total_bytes_written_to_out);
 				if (bytes_written_to_out < 0) {
 					printf("error write() to server : %s\n", strerror(errno));
 					exit(errno);
@@ -181,30 +158,18 @@ void main(int argc, char *argv[]){
 				// increment our counter
 				total_bytes_written_to_out = total_bytes_written_to_out + bytes_written_to_out;
 
-			} // finished writing everything to server
+			} // finished writing to server
 	
 	
 		} // nothing else to read from IN file
-
 	
-	 // read from server the ecrypted data + write the encrypted data to OUT file
-		/*
-	while ( (bytes_read_from_in = read(IN_fd, clientBuffer, sizeof(clientBuffer)-1))> 0){ 
-		clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
-		bytes_written_to_server = write(sockfd, clientBuffer, bytes_read_from_in); // write what you read from IN file
-		if ( bytes_written_to_server < 0){
-				printf("Error while writing to server through socket: %s\n", strerror(errno));
-				exit(errno);
-		}
-	}
-
-	if (bytes_read_from_in < 0){ // didnt reach EOF, its an error
-		printf("Error while reading from IN file: %s\n", strerror(errno));
-		exit(errno);
 	
-	}*/
+		 
+
+		printf("finished reading from IN file\n");
 
 	// exit gracefully - close files & socket
+	printf("Exiting from client\n");
     close(sockfd); 
     close(IN_fd);
     close(OUT_fd);

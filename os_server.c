@@ -20,7 +20,9 @@
 // 1. init all variables at start
 // 2. DONE >> see official solution for hw1
 // 3. DONE >> Do we need to close thing in errors? check in solution hw1 maybe...
-
+// 4. changes - is keylen not provided - dont use open! see moodle
+// 5. what if cntl+c in client?
+// 6. exit and close file properly in the init (before connection in main server)
 
 
 // Headers:
@@ -30,7 +32,6 @@ void server_handler(int signal);
 int exit_flag = 0; // if flag == 1 then exit gracefully from all child processes
 
 void server_handler(int signal){ 
-	// if (kill(0, SIGKILL) != 0) >> changed to SIGINT so chile is references to the handler
 	// terminal: to check after/during program:  ps -A | grep os_
 	// zombie - <defunct> child finished
 	// check if errors are interrupts and if they are - exit - EINTR stopped because signal - then: exit gracefully
@@ -40,13 +41,13 @@ void server_handler(int signal){
 		printf("\n SIGINT wad entered ...\n");
 		exit_flag = 1; // raised flag - child process should exit gracefully
 		printf("\n raised flag ...\n");
-		if (kill(0, SIGINT) != 0){
-				printf("Error killing all processes: %s\n", strerror(errno));
+	//	if (kill(0, SIGINT) != 0){
+	//			printf("Error killing all processes: %s\n", strerror(errno));
 				exit(errno);
-		} // should kill all processes in its group - including children
+	//	} // should kill all processes in its group - including children
 
-		printf("\n Exiting gracefully...\n");
-		exit(EXIT_FAILURE);
+		//printf("\n Exiting gracefully...\n");
+		//exit(EXIT_FAILURE);
 	}
 }
 
@@ -63,6 +64,7 @@ void main(int argc, char *argv[]){
 	int urandom_fd = 0; // urandom file
 	char keyBuffer[MAX]; // buffer to create key file 
 	char clientBuffer[MAX]; // buffer to send to client
+	char sendBuffer[MAX];
 	int bytes_left_to_init = 0; // for while loop - creating key file
 	int bytes_read_from_urandom = 0; // for creating key file
 	int listen_fd = 0; // listen fd (in listen() function)
@@ -94,7 +96,7 @@ void main(int argc, char *argv[]){
 	if (argc == 4){ // user entered KEYLEN:
 			errno = 0;
 			KEYLEN = strtol(argv[3], &ptr, 10);
-			if (errno != 0){
+			if (KEYLEN != 0){
 				printf("Error converting KEYLEN from string to long: %s\n", strerror(errno));
 				exit(errno);
 			}
@@ -139,7 +141,7 @@ void main(int argc, char *argv[]){
 					}
 				}
 
-				 // no errors - we can write what we read in key file
+				 // now we can write what we read from urandom in key file
 				bytes_written_to_key = write(key_fd, keyBuffer, bytes_read_from_urandom); // write what you read from urandom
 				if ( bytes_written_to_key < 0){
 							printf("Error while using writing to output file: %s\n", strerror(errno));
@@ -151,6 +153,7 @@ void main(int argc, char *argv[]){
 
 
 			} // END OF WHILE LOOP - for creating key file (if KEYLEN was entered)
+			
 			printf("Finished initializing the key file using urandom!\n");
 			// close opened files, we will open the key file again for each process / client
 			close(key_fd);
@@ -175,7 +178,7 @@ void main(int argc, char *argv[]){
 					printf("Error - key file is empty: %s\n", strerror(errno));
 					exit(errno);
 			}
-
+			printf("Key file is not empty\n");
 			close(key_fd);
 
 		}
@@ -191,16 +194,18 @@ void main(int argc, char *argv[]){
 	    memset(&serv_addr, '0', sizeof(serv_addr)); // reset bits in serv_addr
 		memset(clientBuffer, '0', sizeof(clientBuffer)); // reset bits in client buffer
 		memset(keyBuffer, '0', sizeof(keyBuffer)); // reset bits in key buffer
+		memset(sendBuffer, '0', sizeof(sendBuffer)); // reset bits in send buffer
+		
 
 		serv_addr.sin_family = AF_INET;
-   		serv_addr.sin_addr.s_addr = htonl(PORT); // INADDR_ANY = any local machine address
-		serv_addr.sin_port = htons(10000); // it doensnt matter whats in here - its the same computer
-		printf("1\n");
+   		serv_addr.sin_addr.s_addr = htonl(INADDR_ANY); // INADDR_ANY = any local machine address
+		serv_addr.sin_port = htons(PORT); // it doensnt matter whats in here - its the same computer
+
 		if( bind(listen_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))){ // maps between a socket and an address
 	       printf("\n Error : Bind Failed. %s \n", strerror(errno));
 	       exit(errno);
 	    }
-		printf("2\n");
+		
 	    if(listen(listen_fd, 10)){ // mark a socket as special - to accept incoming connections from
 	       printf("\n Error : Listen Failed. %s \n", strerror(errno));
 	       exit(errno);
@@ -212,11 +217,10 @@ void main(int argc, char *argv[]){
 				printf("Error while defining SIGINT: %s\n", strerror(errno));
 				exit(errno);
 		}
-		printf("3\n");
+		
 		while (1){
 			// accepting connection
 			client_connection_fd = accept(listen_fd, NULL, NULL);
-			printf("4\n");
         	if(client_connection_fd < 0){ // error in connection
            		printf("\n Error : Accept Failed. %s \n", strerror(errno));
            		exit(errno); 
@@ -238,8 +242,9 @@ void main(int argc, char *argv[]){
 					exit(errno); 
 				}
 
+				printf("Process ID is: %d\n",getpid());
 				
-			
+				
 				// loop: read -- encrypt -- send result to client
 				while (1){ // read until we have nothing to read from client
 
@@ -248,6 +253,7 @@ void main(int argc, char *argv[]){
 						if (bytes_read_from_client == EINTR){
 							if (exit_flag){
 								// exit gracefully
+								printf("Exiting:  %d\n",getpid());
 								close(client_connection_fd); // close when finish handling the client
 								close(key_fd);
 								exit(EXIT_FAILURE);
@@ -272,6 +278,7 @@ void main(int argc, char *argv[]){
 							if (bytes_read_from_key == EINTR){
 								if (exit_flag){
 									// exit gracefully
+									printf("Exiting:  %d\n",getpid());
 									close(client_connection_fd); // close when finish handling the client
 									close(key_fd);
 									exit(EXIT_FAILURE);
@@ -314,6 +321,7 @@ void main(int argc, char *argv[]){
 							if (bytes_written_to_client == EINTR){
 								if (exit_flag){
 									// exit gracefully
+									printf("Exiting:  %d\n",getpid());
 									close(client_connection_fd); // close when finish handling the client
 									close(key_fd);
 									exit(EXIT_FAILURE);
@@ -329,13 +337,12 @@ void main(int argc, char *argv[]){
 
 						} // finished writing everything to client
 
-
-						
 				
 					} // nothing else to read from client
 				
 
 				// exit gracefully
+				printf("FINISHED PROCESS: %d\n", getpid());
 				close(client_connection_fd); // close when finish handling the client
 				close(key_fd);
 				exit(0);
