@@ -133,12 +133,14 @@ void main(int argc, char *argv[]){
 				}
 
 				// increment our counter
-				total_bytes_written_to_server = total_bytes_written_to_server + bytes_written_to_server;
+				else{
+					total_bytes_written_to_server = total_bytes_written_to_server + bytes_written_to_server;
+				}
 
 			} // finished writing to server the current buffer
 
 			// now read encrypted data from server
-			bytes_read_from_server = read(sockfd, sendBuffer, MAX); // try reading from IN
+			bytes_read_from_server = read(sockfd, sendBuffer, bytes_read_from_in); // try reading from IN
 
 			if (bytes_read_from_server < 0){ // error reading from client
 				printf("Error reading from server: %s\n", strerror(errno));

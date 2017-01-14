@@ -64,7 +64,6 @@ void main(int argc, char *argv[]){
 	int urandom_fd = 0; // urandom file
 	char keyBuffer[MAX]; // buffer to create key file 
 	char clientBuffer[MAX]; // buffer to send to client
-	char sendBuffer[MAX];
 	int bytes_left_to_init = 0; // for while loop - creating key file
 	int bytes_read_from_urandom = 0; // for creating key file
 	int listen_fd = 0; // listen fd (in listen() function)
@@ -79,6 +78,8 @@ void main(int argc, char *argv[]){
 	int bytes_written_to_key = 0; // return value for each write() call
 	int i=0; // iteration index
 	struct sockaddr_in serv_addr; // a TCP socket
+	int j=0;
+
 
 	char * KEY;
 	short PORT;
@@ -178,7 +179,7 @@ void main(int argc, char *argv[]){
 					printf("Error - key file is empty: %s\n", strerror(errno));
 					exit(errno);
 			}
-			printf("Key file is not empty\n");
+			
 			close(key_fd);
 
 		}
@@ -194,12 +195,12 @@ void main(int argc, char *argv[]){
 	    memset(&serv_addr, '0', sizeof(serv_addr)); // reset bits in serv_addr
 		memset(clientBuffer, '0', sizeof(clientBuffer)); // reset bits in client buffer
 		memset(keyBuffer, '0', sizeof(keyBuffer)); // reset bits in key buffer
-		memset(sendBuffer, '0', sizeof(sendBuffer)); // reset bits in send buffer
+	
 		
 
 		serv_addr.sin_family = AF_INET;
    		serv_addr.sin_addr.s_addr = htonl(INADDR_ANY); // INADDR_ANY = any local machine address
-		serv_addr.sin_port = htons(PORT); // it doensnt matter whats in here - its the same computer
+		serv_addr.sin_port = htons(PORT); // the argument PORT
 
 		if( bind(listen_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))){ // maps between a socket and an address
 	       printf("\n Error : Bind Failed. %s \n", strerror(errno));
@@ -292,6 +293,7 @@ void main(int argc, char *argv[]){
 							else // maybe we need to iterate on key file...
 
 								if (bytes_read_from_key == 0){ // key file reached EOF
+									
 										close(key_fd);
 										key_fd = open(KEY, O_RDONLY); /* opens key file from the beggining */
 						
@@ -343,6 +345,7 @@ void main(int argc, char *argv[]){
 
 				// exit gracefully
 				printf("FINISHED PROCESS: %d\n", getpid());
+				printf("iteraten on KEY %d times\n",j);
 				close(client_connection_fd); // close when finish handling the client
 				close(key_fd);
 				exit(0);
