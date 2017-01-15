@@ -18,10 +18,10 @@
 // 2. what does Client - instruction 5 means? What to do with instruction 2? 
 // 3. DONE >> read comments carefully
 // 4. DONE >> clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
-// 5. Do we need to use perror? see moodle
-// 6. Client opens before server? 
+// 5. DONE >> Do we need to use perror? see moodle
+// 6. DONE >> Client opens before server? 
 // 7. DONE >> Add loop in reading from socket
-// 8. clear printf + comments when not needed
+// 8. DONE >> clear printf + comments when not needed
 
 void main(int argc, char *argv[]){
 
@@ -95,8 +95,6 @@ void main(int argc, char *argv[]){
     serv_addr.sin_family = AF_INET; //TCP
     serv_addr.sin_port = htons(PORT); // Note: htons for endiannes
     serv_addr.sin_addr.s_addr = inet_addr(IP); 
-
-	printf("Client: connecting...\n"); // delete
 
 	  // connect socket to the above address 
     if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
@@ -174,10 +172,10 @@ void main(int argc, char *argv[]){
 	
 		 
 
-		printf("finished reading from IN file\n");
+	//printf("finished reading from IN file\n");
 
 	// exit gracefully - close files & socket
-	printf("Exiting from client\n");
+	//printf("Exiting from client\n");
     close(sockfd); 
     close(IN_fd);
     close(OUT_fd);

@@ -35,10 +35,8 @@ void server_handler(int signal){
 	// check if errors are interrupts and if they are - exit - EINTR stopped because signal - then: exit gracefully
 	// in Blocking funcs: read, write, accept...
 
-	if (signal == SIGINT) { // flag
-		printf("\n SIGINT wad entered ...\n");
-		exit_flag = 1; // raised flag - child process should exit gracefully
-		printf("\n raised flag ...\n");
+	if (signal == SIGINT) { 
+		exit_flag = 1; // raised flag - child process should exit gracefully	
 	}
 }
 
@@ -112,7 +110,7 @@ void main(int argc, char *argv[]){
 				if (errno == EINTR){
 					if (exit_flag == 1){
 						// nothing to close
-						printf("SIGINT wad entered\n");
+						//printf("SIGINT wad entered\n");
 						close(urandom_fd);
 						close(key_fd);
 						exit(EXIT_FAILURE);
@@ -148,7 +146,7 @@ void main(int argc, char *argv[]){
 				if (errno == EINTR){
 					if (exit_flag == 1){
 						// nothing to close
-						printf("SIGINT wad entered\n");
+						//printf("SIGINT wad entered\n");
 						close(urandom_fd);
 						close(key_fd);
 						exit(EXIT_FAILURE);
@@ -166,7 +164,6 @@ void main(int argc, char *argv[]){
 
 			} // END OF WHILE LOOP - for creating key file (if KEYLEN was entered)
 			
-			printf("Finished initializing the key file using urandom!\n");
 			// close opened files, we will open the key file again for each process / client
 			close(key_fd);
 			close(urandom_fd);
@@ -223,7 +220,7 @@ void main(int argc, char *argv[]){
 			if (errno == EINTR){
 					if (exit_flag == 1){
 						// nothing to close
-						printf("SIGINT wad entered\n");
+						//printf("SIGINT wad entered\n");
 						exit(EXIT_FAILURE);
 					}
 			}
@@ -249,19 +246,19 @@ void main(int argc, char *argv[]){
 					exit(errno); 
 				}
 
-				printf("Process ID is: %d\n",getpid());
+				//printf("Process ID is: %d\n",getpid());
 				
 				
 				// loop: read -- encrypt -- send result to client
-				while (1){ // read until we have nothing to read from client
+			while (1){ // read until we have nothing to read from client
 
 						bytes_read_from_client = read(client_connection_fd, clientBuffer, MAX); // try reading from client
 
 						if (errno == EINTR){
-							if (exit_flag){
+							if (exit_flag == 1){
 								// exit gracefully
-								printf("Exiting:  %d\n",getpid());
-								close(client_connection_fd); // close when finish handling the client
+								//printf("Exiting:  %d\n",getpid());
+								close(listen_fd); // close when finish handling the client
 								close(key_fd);
 								exit(EXIT_FAILURE);
 							}
@@ -287,8 +284,8 @@ void main(int argc, char *argv[]){
 							if (errno == EINTR){
 								if (exit_flag == 1){
 									// exit gracefully
-									printf("Exiting:  %d\n",getpid());
-									close(client_connection_fd); // close when finish handling the client
+									//printf("Exiting:  %d\n",getpid());
+									close(listen_fd); // close when finish handling the client
 									close(key_fd);
 									exit(EXIT_FAILURE);
 								}
@@ -331,8 +328,8 @@ void main(int argc, char *argv[]){
 							if (errno == EINTR){
 								if (exit_flag == 1){
 									// exit gracefully
-									printf("Exiting:  %d\n",getpid());
-									close(client_connection_fd); // close when finish handling the client
+									//printf("Exiting:  %d\n",getpid());
+									close(listen_fd); // close when finish handling the client
 									close(key_fd);
 									exit(EXIT_FAILURE);
 								}
@@ -352,15 +349,15 @@ void main(int argc, char *argv[]){
 				
 
 				// exit gracefully
-				printf("FINISHED PROCESS: %d\n", getpid());
+				//printf("FINISHED PROCESS: %d\n", getpid());
 			
-				close(client_connection_fd); // close when finish handling the client
+				close(listen_fd); // close when finish handling the client
 				close(key_fd);
 				exit(0);
 
 			}
 			 // if we got here, that means that (process_id != 0) - we continue to iterate to get next connection
-
+			close(client_connection_fd);
 		}
 
 
