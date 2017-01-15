@@ -45,9 +45,9 @@ void main(int argc, char *argv[]){
 	int bytes_written_to_server = 0;
 	int total_bytes_written_to_server = 0;
 	int total_bytes_written_to_out = 0;
-    char clientBuffer[MAX];
-    char sendBuffer[MAX];
-    struct sockaddr_in serv_addr;  // contain the address of the server to which we want to connect
+    char clientBuffer[MAX] = {0};
+    char sendBuffer[MAX] = {0};
+    struct sockaddr_in serv_addr = {0};  // contain the address of the server to which we want to connect
 
     socklen_t addrsize = sizeof(struct sockaddr_in );
 
@@ -81,9 +81,10 @@ void main(int argc, char *argv[]){
 	}
 
 	
-
+	/*
     memset(clientBuffer, '0',sizeof(clientBuffer)); // clear client buffer
     memset(sendBuffer, '0',sizeof(sendBuffer)); 
+    */
 
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
     // AF_INET means ipv4, SOCK_STREAM means reliable, 
@@ -92,7 +93,7 @@ void main(int argc, char *argv[]){
         exit(-1);
 	} 
 
-    memset(&serv_addr, '0', sizeof(serv_addr)); // clears the server
+   // memset(&serv_addr, '0', sizeof(serv_addr)); // clears the server
 
     // define server socket:
     serv_addr.sin_family = AF_INET; //TCP

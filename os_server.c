@@ -16,6 +16,9 @@
 #define MAX 1024
 #define RANDOM_FILE_PATH "/dev/random"
 
+// Global variables:
+int exit_flag = 0; // if (flag == 1) then exit gracefully from all child processes
+
 // TO DO LIST
 // 1. init all variables at start
 // 2. DONE >> see official solution for hw1
@@ -28,9 +31,6 @@
 // Headers:
 void server_handler(int signal);
 
-// Global variables:
-int exit_flag = 0; // if flag == 1 then exit gracefully from all child processes
-
 void server_handler(int signal){ 
 	// terminal: to check after/during program:  ps -A | grep os_
 	// zombie - <defunct> child finished
@@ -41,13 +41,13 @@ void server_handler(int signal){
 		printf("\n SIGINT wad entered ...\n");
 		exit_flag = 1; // raised flag - child process should exit gracefully
 		printf("\n raised flag ...\n");
-	//	if (kill(0, SIGINT) != 0){
-	//			printf("Error killing all processes: %s\n", strerror(errno));
-				exit(errno);
-	//	} // should kill all processes in its group - including children
+		/*if (kill(0, SIGINT) != 0){
+				printf("Error killing all processes: %s\n", strerror(errno));
+				//exit(errno);
+		} // should kill all processes in its group - including children
 
-		//printf("\n Exiting gracefully...\n");
-		//exit(EXIT_FAILURE);
+		printf("\n Exiting gracefully...\n");
+		exit(EXIT_FAILURE);*/
 	}
 }
 
@@ -62,8 +62,8 @@ void main(int argc, char *argv[]){
 	char * ptr; // for strtol function
 	int key_fd = 0; // key file
 	int urandom_fd = 0; // urandom file
-	char keyBuffer[MAX]; // buffer to create key file 
-	char clientBuffer[MAX]; // buffer to send to client
+	char keyBuffer[MAX] = {0}; // buffer to create key file 
+	char clientBuffer[MAX] = {0}; // buffer to send to client
 	int bytes_left_to_init = 0; // for while loop - creating key file
 	int bytes_read_from_urandom = 0; // for creating key file
 	int listen_fd = 0; // listen fd (in listen() function)
@@ -77,9 +77,7 @@ void main(int argc, char *argv[]){
 	int bytes_written_to_client = 0; //  return value for each write() call
 	int bytes_written_to_key = 0; // return value for each write() call
 	int i=0; // iteration index
-	struct sockaddr_in serv_addr; // a TCP socket
-	int j=0;
-
+	struct sockaddr_in serv_addr = {0}; // a TCP socket
 
 	char * KEY;
 	short PORT;
@@ -102,7 +100,7 @@ void main(int argc, char *argv[]){
 				exit(errno);
 			}
 
-			key_fd = open(KEY, O_RDWR | O_CREAT | O_TRUNC,0777 ); // opens/creates a key file 
+			key_fd = open(KEY, O_WRONLY | O_CREAT | O_TRUNC,0777 ); // opens/creates a key file 
 			if (key_fd < 0){ // check for error 
 				printf("Error opening key file: %s\n", strerror(errno));
 				exit(errno); 
@@ -119,7 +117,17 @@ void main(int argc, char *argv[]){
 			while (bytes_left_to_init > 0){ // while there's something left to write
 
 				bytes_read_from_urandom = read(urandom_fd, keyBuffer, bytes_left_to_init);
-				if ( bytes_read_from_urandom < 0){
+				if (errno == EINTR){
+					if (exit_flag == 1){
+						// nothing to close
+						printf("SIGINT wad entered\n");
+						close(urandom_fd);
+						close(key_fd);
+						exit(EXIT_FAILURE);
+					}
+				}
+
+				else if ( bytes_read_from_urandom < 0){
 					printf("Error while reading from /dev/urandom: %s\n", strerror(errno));
 					exit(errno);
 				}
@@ -144,7 +152,18 @@ void main(int argc, char *argv[]){
 
 				 // now we can write what we read from urandom in key file
 				bytes_written_to_key = write(key_fd, keyBuffer, bytes_read_from_urandom); // write what you read from urandom
-				if ( bytes_written_to_key < 0){
+
+				if (errno == EINTR){
+					if (exit_flag == 1){
+						// nothing to close
+						printf("SIGINT wad entered\n");
+						close(urandom_fd);
+						close(key_fd);
+						exit(EXIT_FAILURE);
+					}
+				}
+
+				else if ( bytes_written_to_key < 0){
 							printf("Error while using writing to output file: %s\n", strerror(errno));
 							exit(errno);
 					}
@@ -192,10 +211,10 @@ void main(int argc, char *argv[]){
 		      exit(errno);
 		} 
 	    
-	    memset(&serv_addr, '0', sizeof(serv_addr)); // reset bits in serv_addr
+	    /*memset(&serv_addr, '0', sizeof(serv_addr)); // reset bits in serv_addr
 		memset(clientBuffer, '0', sizeof(clientBuffer)); // reset bits in client buffer
 		memset(keyBuffer, '0', sizeof(keyBuffer)); // reset bits in key buffer
-	
+		*/
 		
 
 		serv_addr.sin_family = AF_INET;
@@ -222,7 +241,16 @@ void main(int argc, char *argv[]){
 		while (1){
 			// accepting connection
 			client_connection_fd = accept(listen_fd, NULL, NULL);
-        	if(client_connection_fd < 0){ // error in connection
+
+			if (errno == EINTR){
+					if (exit_flag == 1){
+						// nothing to close
+						printf("SIGINT wad entered\n");
+						exit(EXIT_FAILURE);
+					}
+			}
+
+        	else if(client_connection_fd < 0){ // error in connection
            		printf("\n Error : Accept Failed. %s \n", strerror(errno));
            		exit(errno); 
 			}
@@ -251,7 +279,7 @@ void main(int argc, char *argv[]){
 
 						bytes_read_from_client = read(client_connection_fd, clientBuffer, MAX); // try reading from client
 
-						if (bytes_read_from_client == EINTR){
+						if (errno == EINTR){
 							if (exit_flag){
 								// exit gracefully
 								printf("Exiting:  %d\n",getpid());
@@ -269,6 +297,8 @@ void main(int argc, char *argv[]){
 							break;
 						}
 
+
+					
 						// we sum the number of bytes read every time from key file - until reaching bytes_read_from_client
 						total_bytes_read_from_key = 0; 
 
@@ -276,8 +306,8 @@ void main(int argc, char *argv[]){
 							// read from key - enter the data to next avaliable location in buffer
 							bytes_read_from_key = read(key_fd, keyBuffer + total_bytes_read_from_key, bytes_read_from_client - total_bytes_read_from_key);
 							
-							if (bytes_read_from_key == EINTR){
-								if (exit_flag){
+							if (errno == EINTR){
+								if (exit_flag == 1){
 									// exit gracefully
 									printf("Exiting:  %d\n",getpid());
 									close(client_connection_fd); // close when finish handling the client
@@ -320,8 +350,8 @@ void main(int argc, char *argv[]){
 							
 							bytes_written_to_client = write(client_connection_fd, clientBuffer + total_bytes_written_to_client, bytes_read_from_client - total_bytes_written_to_client);
 							
-							if (bytes_written_to_client == EINTR){
-								if (exit_flag){
+							if (errno == EINTR){
+								if (exit_flag == 1){
 									// exit gracefully
 									printf("Exiting:  %d\n",getpid());
 									close(client_connection_fd); // close when finish handling the client
@@ -345,7 +375,7 @@ void main(int argc, char *argv[]){
 
 				// exit gracefully
 				printf("FINISHED PROCESS: %d\n", getpid());
-				printf("iteraten on KEY %d times\n",j);
+			
 				close(client_connection_fd); // close when finish handling the client
 				close(key_fd);
 				exit(0);
