@@ -14,13 +14,14 @@
 
 #define MAX 1024
 // To do list:
-// 1. init all variables at start
+// 1. DONE >> init all variables at start
 // 2. what does Client - instruction 5 means? What to do with instruction 2? 
-// 3. read comments carefully
+// 3. DONE >> read comments carefully
 // 4. DONE >> clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
-// 5. Do we need to use perror?
-// 6. Client before server? 
-// 7. Add loop in reading from socket
+// 5. Do we need to use perror? see moodle
+// 6. Client opens before server? 
+// 7. DONE >> Add loop in reading from socket
+// 8. clear printf + comments when not needed
 
 void main(int argc, char *argv[]){
 
@@ -46,6 +47,7 @@ void main(int argc, char *argv[]){
 	int bytes_written_to_server = 0;
 	int total_bytes_written_to_server = 0;
 	int total_bytes_written_to_out = 0;
+	int total_bytes_read_from_server = 0;
     char clientBuffer[MAX] = {0};
     char sendBuffer[MAX] = {0};
     struct sockaddr_in serv_addr = {0};  // contain the address of the server to which we want to connect
@@ -81,11 +83,6 @@ void main(int argc, char *argv[]){
 			exit(errno); 
 	}
 
-	
-	/*
-    memset(clientBuffer, '0',sizeof(clientBuffer)); // clear client buffer
-    memset(sendBuffer, '0',sizeof(sendBuffer)); 
-    */
 
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
     // AF_INET means ipv4, SOCK_STREAM means reliable, 
@@ -93,8 +90,6 @@ void main(int argc, char *argv[]){
         printf("\n Error : Could not create socket \n");
         exit(-1);
 	} 
-
-   // memset(&serv_addr, '0', sizeof(serv_addr)); // clears the server
 
     // define server socket:
     serv_addr.sin_family = AF_INET; //TCP
@@ -142,11 +137,20 @@ void main(int argc, char *argv[]){
 			} // finished writing to server the current buffer
 
 			// now read encrypted data from server
-			bytes_read_from_server = read(sockfd, sendBuffer, bytes_read_from_in); // try reading from IN
 
-			if (bytes_read_from_server < 0){ // error reading from client
-				printf("Error reading from server: %s\n", strerror(errno));
-				exit(errno); 
+			total_bytes_read_from_server = 0;
+			while (total_bytes_read_from_server < bytes_read_from_in){
+				bytes_read_from_server = read(sockfd, sendBuffer + total_bytes_read_from_server, bytes_read_from_in - total_bytes_read_from_server);
+				
+				if (bytes_read_from_server < 0){ // error reading from client
+					printf("Error reading from server: %s\n", strerror(errno));
+					exit(errno); 
+				}
+
+				else { // the reading was succesful!
+								total_bytes_read_from_server = total_bytes_read_from_server + bytes_read_from_server;
+				}
+
 			}
 			
 			// write encryped data to out file

@@ -20,13 +20,11 @@
 int exit_flag = 0; // if (flag == 1) then exit gracefully from all child processes
 
 // TO DO LIST
-// 1. init all variables at start
+// 1. DONE >> init all variables at start
 // 2. DONE >> see official solution for hw1
 // 3. DONE >> Do we need to close thing in errors? check in solution hw1 maybe...
-// 4. changes - is keylen not provided - dont use open! see moodle
-// 5. what if cntl+c in client?
-// 6. exit and close file properly in the init (before connection in main server)
-
+// 4. DONE >> changes - is keylen not provided - dont use open! see moodle
+// 5. clear printf + comments when not needed
 
 // Headers:
 void server_handler(int signal);
@@ -41,13 +39,6 @@ void server_handler(int signal){
 		printf("\n SIGINT wad entered ...\n");
 		exit_flag = 1; // raised flag - child process should exit gracefully
 		printf("\n raised flag ...\n");
-		/*if (kill(0, SIGINT) != 0){
-				printf("Error killing all processes: %s\n", strerror(errno));
-				//exit(errno);
-		} // should kill all processes in its group - including children
-
-		printf("\n Exiting gracefully...\n");
-		exit(EXIT_FAILURE);*/
 	}
 }
 
@@ -78,6 +69,7 @@ void main(int argc, char *argv[]){
 	int bytes_written_to_key = 0; // return value for each write() call
 	int i=0; // iteration index
 	struct sockaddr_in serv_addr = {0}; // a TCP socket
+	struct stat keyFileStat; //create stat to determine size 
 
 	char * KEY;
 	short PORT;
@@ -95,7 +87,7 @@ void main(int argc, char *argv[]){
 	if (argc == 4){ // user entered KEYLEN:
 			errno = 0;
 			KEYLEN = strtol(argv[3], &ptr, 10);
-			if (KEYLEN != 0){
+			if (KEYLEN < 0){
 				printf("Error converting KEYLEN from string to long: %s\n", strerror(errno));
 				exit(errno);
 			}
@@ -182,24 +174,15 @@ void main(int argc, char *argv[]){
 
 		else{ // if KEYLEN is not provided - need to check that key file is not empty and that it exists
 
-			key_fd = open(KEY, O_RDONLY ,0777 ); // opens a key file 
-			if (key_fd < 0){ // check for error 
-				printf("Error opening key file: %s\n", strerror(errno));
+			if ( stat(KEY, &keyFileStat)<0 ){ /*check for error + check size of key file */
+				printf("Error while using fstat: %s\n", strerror(errno));
 				exit(errno); 
 			}
-
-			bytes_read_from_key = read(key_fd, keyBuffer, MAX);
-			if ( bytes_read_from_key < 0){
-					printf("Error while reading from key file: %s\n", strerror(errno));
-					exit(errno);
-			}
-
-			else if (bytes_read_from_key == 0){ // key file is empty
-					printf("Error - key file is empty: %s\n", strerror(errno));
-					exit(errno);
+			if (keyFileStat.st_size < 1){
+				printf("Error: Key file is empty\n");
+				exit(-1);
 			}
 			
-			close(key_fd);
 
 		}
 
@@ -211,11 +194,6 @@ void main(int argc, char *argv[]){
 		      exit(errno);
 		} 
 	    
-	    /*memset(&serv_addr, '0', sizeof(serv_addr)); // reset bits in serv_addr
-		memset(clientBuffer, '0', sizeof(clientBuffer)); // reset bits in client buffer
-		memset(keyBuffer, '0', sizeof(keyBuffer)); // reset bits in key buffer
-		*/
-		
 
 		serv_addr.sin_family = AF_INET;
    		serv_addr.sin_addr.s_addr = htonl(INADDR_ANY); // INADDR_ANY = any local machine address
