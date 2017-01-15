@@ -14,7 +14,7 @@
 #include <fcntl.h>
 
 #define MAX 1024
-#define RANDOM_FILE_PATH "/dev/random"
+#define RANDOM_FILE_PATH "/dev/urandom"
 
 // Global variables:
 int exit_flag = 0; // if (flag == 1) then exit gracefully from all child processes
@@ -316,13 +316,12 @@ void main(int argc, char *argv[]){
 								}
 							}
 							else if ( bytes_read_from_key < 0){ // check for error in reading key
-								printf("Error while reading from key file: %s\n", strerror(errno));
-								exit(errno);
-							}
-
-							else // maybe we need to iterate on key file...
-
-								if (bytes_read_from_key == 0){ // key file reached EOF
+									printf("Error while reading from key file: %s\n", strerror(errno));
+									exit(errno);
+									}
+							
+							// maybe we need to iterate on key file...
+							else if (bytes_read_from_key == 0){ // key file reached EOF
 									
 										close(key_fd);
 										key_fd = open(KEY, O_RDONLY); /* opens key file from the beggining */
@@ -332,6 +331,7 @@ void main(int argc, char *argv[]){
 					        				exit(errno); 
 					   					}   
 								}
+							
 							
 							else { // the reading was succesful!
 								total_bytes_read_from_key = total_bytes_read_from_key + bytes_read_from_key;

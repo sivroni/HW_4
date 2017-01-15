@@ -20,6 +20,7 @@
 // 4. DONE >> clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
 // 5. Do we need to use perror?
 // 6. Client before server? 
+// 7. Add loop in reading from socket
 
 void main(int argc, char *argv[]){
 
