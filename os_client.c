@@ -12,16 +12,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+/* Credit for formal solutions for assignment 1 published by staff */
+
 #define MAX 1024
-// To do list:
-// 1. DONE >> init all variables at start
-// 2. what does Client - instruction 5 means? What to do with instruction 2? 
-// 3. DONE >> read comments carefully
-// 4. DONE >> clientBuffer[bytes_read_from_in] = 0; // end of buffer with '\0' == DOUBLE CHECK IT !
-// 5. DONE >> Do we need to use perror? see moodle
-// 6. DONE >> Client opens before server? 
-// 7. DONE >> Add loop in reading from socket
-// 8. DONE >> clear printf + comments when not needed
 
 void main(int argc, char *argv[]){
 
@@ -169,13 +162,7 @@ void main(int argc, char *argv[]){
 	
 		} // nothing else to read from IN file
 	
-	
-		 
-
-	//printf("finished reading from IN file\n");
-
 	// exit gracefully - close files & socket
-	//printf("Exiting from client\n");
     close(sockfd); 
     close(IN_fd);
     close(OUT_fd);

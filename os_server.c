@@ -13,18 +13,14 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+/* Credit for formal solutions for assignment 1 published by staff */
+
 #define MAX 1024
 #define RANDOM_FILE_PATH "/dev/urandom"
 
 // Global variables:
+int at_least_one_connection = 0; // if it is 1 than we got a connection to close in loop
 int exit_flag = 0; // if (flag == 1) then exit gracefully from all child processes
-
-// TO DO LIST
-// 1. DONE >> init all variables at start
-// 2. DONE >> see official solution for hw1
-// 3. DONE >> Do we need to close thing in errors? check in solution hw1 maybe...
-// 4. DONE >> changes - is keylen not provided - dont use open! see moodle
-// 5. clear printf + comments when not needed
 
 // Headers:
 void server_handler(int signal);
@@ -32,8 +28,6 @@ void server_handler(int signal);
 void server_handler(int signal){ 
 	// terminal: to check after/during program:  ps -A | grep os_
 	// zombie - <defunct> child finished
-	// check if errors are interrupts and if they are - exit - EINTR stopped because signal - then: exit gracefully
-	// in Blocking funcs: read, write, accept...
 
 	if (signal == SIGINT) { 
 		exit_flag = 1; // raised flag - child process should exit gracefully	
@@ -68,6 +62,8 @@ void main(int argc, char *argv[]){
 	int i=0; // iteration index
 	struct sockaddr_in serv_addr = {0}; // a TCP socket
 	struct stat keyFileStat; //create stat to determine size 
+
+	//pid_t id = 0;
 
 	char * KEY;
 	short PORT;
@@ -107,24 +103,14 @@ void main(int argc, char *argv[]){
 			while (bytes_left_to_init > 0){ // while there's something left to write
 
 				bytes_read_from_urandom = read(urandom_fd, keyBuffer, bytes_left_to_init);
-				if (errno == EINTR){
-					if (exit_flag == 1){
-						// nothing to close
-						//printf("SIGINT wad entered\n");
-						close(urandom_fd);
-						close(key_fd);
-						exit(EXIT_FAILURE);
-					}
-				}
 
-				else if ( bytes_read_from_urandom < 0){
+				if ( bytes_read_from_urandom < 0){
 					printf("Error while reading from /dev/urandom: %s\n", strerror(errno));
 					exit(errno);
 				}
 
-				else{ // we need to close the urandom and open it again - reached EOF
-
-					if( bytes_read_from_urandom == 0 ){ 
+				// we need to close the urandom and open it again - reached EOF
+				else if( bytes_read_from_urandom == 0 ){ 
 						close(urandom_fd);
 						urandom_fd = open(RANDOM_FILE_PATH , O_RDONLY);
 						if (urandom_fd < 0){ // check for error 
@@ -137,26 +123,16 @@ void main(int argc, char *argv[]){
 							exit(errno);
 						}
 
-					}
 				}
+				
 
 				 // now we can write what we read from urandom in key file
 				bytes_written_to_key = write(key_fd, keyBuffer, bytes_read_from_urandom); // write what you read from urandom
 
-				if (errno == EINTR){
-					if (exit_flag == 1){
-						// nothing to close
-						//printf("SIGINT wad entered\n");
-						close(urandom_fd);
-						close(key_fd);
-						exit(EXIT_FAILURE);
-					}
-				}
-
-				else if ( bytes_written_to_key < 0){
+				if ( bytes_written_to_key < 0){
 							printf("Error while using writing to output file: %s\n", strerror(errno));
 							exit(errno);
-					}
+				}
 
 				bytes_left_to_init = bytes_left_to_init - bytes_written_to_key; // update number of bytes left to write
 				
@@ -214,14 +190,18 @@ void main(int argc, char *argv[]){
 		}
 		
 		while (1){
+
+			if (exit_flag == 1){ // exit gfracefully - SIGINT entered
+				exit(0);
+			}
+
 			// accepting connection
 			client_connection_fd = accept(listen_fd, NULL, NULL);
 
 			if (errno == EINTR){
 					if (exit_flag == 1){
-						// nothing to close
-						//printf("SIGINT wad entered\n");
-						exit(EXIT_FAILURE);
+						close(client_connection_fd);
+						exit(0);
 					}
 			}
 
@@ -232,13 +212,22 @@ void main(int argc, char *argv[]){
 
 			// fork a new process
 			process_id = fork();
-			if (process_id < 0){ //error forking
+
+			if (errno == EINTR){
+					if (exit_flag == 1){
+						close(client_connection_fd);
+						exit(0);
+					}
+			}
+
+
+			else if (process_id < 0){ //error forking
 				printf("Error while defining SIGINT: %s\n", strerror(errno));
 				exit(errno);
 				
 			}
 
-			if (process_id == 0){ // handle child
+			else if (process_id == 0){ // handle child
 
 				key_fd = open(KEY, O_RDONLY,0777 ); // opens key file
 				if (key_fd < 0){ // check for error 
@@ -246,117 +235,127 @@ void main(int argc, char *argv[]){
 					exit(errno); 
 				}
 
-				//printf("Process ID is: %d\n",getpid());
-				
-				
+				//printf("CHILD PROCESS ID IS:%d\n", getpid());
+					
 				// loop: read -- encrypt -- send result to client
-			while (1){ // read until we have nothing to read from client
+				while (1){ // read until we have nothing to read from client
 
-						bytes_read_from_client = read(client_connection_fd, clientBuffer, MAX); // try reading from client
+							//id = getpid();
+							//printf("killing %d\n", id);
+							//kill(id, SIGINT);
 
-						if (errno == EINTR){
-							if (exit_flag == 1){
-								// exit gracefully
-								//printf("Exiting:  %d\n",getpid());
-								close(listen_fd); // close when finish handling the client
+							if (exit_flag == 1){ // got SIGINT interrupt
+								close(listen_fd);
 								close(key_fd);
-								exit(EXIT_FAILURE);
+								exit(0);
 							}
-						}
-						else if (bytes_read_from_client < 0){ // error reading from client
-							printf("Error reading from client socket: %s\n", strerror(errno));
-							exit(errno); 
-						}
 
-						else if (bytes_read_from_client == 0){ // finish reading - THIS WILL END THE WHILE LOOP
-							break;
-						}
+							bytes_read_from_client = read(client_connection_fd, clientBuffer, MAX); // try reading from client
 
+
+							if (errno == EINTR){
+								if (exit_flag == 1){
+									// exit gracefully
+									printf("1\n");
+									close(listen_fd); // close when finish handling the client
+									close(key_fd);
+									exit(0);
+								}
+							}
+							else if (bytes_read_from_client < 0){ // error reading from client
+								printf("Error reading from client socket: %s\n", strerror(errno));
+								exit(errno); 
+							}
+
+							else if (bytes_read_from_client == 0){ // finish reading - THIS WILL END THE WHILE LOOP
+								break;
+							}
+
+
+						
+							// we sum the number of bytes read every time from key file - until reaching bytes_read_from_client
+							total_bytes_read_from_key = 0; 
+
+							while (total_bytes_read_from_key < bytes_read_from_client){
+								// read from key - enter the data to next avaliable location in buffer
+								bytes_read_from_key = read(key_fd, keyBuffer + total_bytes_read_from_key, bytes_read_from_client - total_bytes_read_from_key);
+								
+								if (errno == EINTR){
+									if (exit_flag == 1){
+										// exit gracefully
+										//printf("Exiting:  %d\n",getpid());
+										close(listen_fd); // close when finish handling the client
+										close(key_fd);
+										exit(0);
+									}
+								}
+
+								else if ( bytes_read_from_key < 0){ // check for error in reading key
+										printf("Error while reading from key file: %s\n", strerror(errno));
+										exit(errno);
+								}
+								
+								// maybe we need to iterate on key file...
+								else if (bytes_read_from_key == 0){ // key file reached EOF
+										
+											close(key_fd);
+											key_fd = open(KEY, O_RDONLY); /* opens key file from the beggining */
+							
+						   					if( key_fd < 0 ){
+						        				printf( "Error opening key file : %s\n", strerror(errno) );
+						        				exit(errno); 
+						   					}   
+									}
+								
+								
+								else { // the reading was succesful!
+									total_bytes_read_from_key = total_bytes_read_from_key + bytes_read_from_key;
+								}
+
+							}
+
+							// now we got 'bytes_read_from_client' from key file in keyBuffer - can XOR
+							
+							// XOR the bytes from key and client
+							for (i = 0; i < bytes_read_from_client; ++i)
+									clientBuffer[i] = clientBuffer[i] ^ keyBuffer[i];
+							
+							total_bytes_written_to_client = 0; // sum the bytes we write - make sure we wrote everything
+							while (total_bytes_written_to_client < bytes_read_from_client) {
+								
+								bytes_written_to_client = write(client_connection_fd, clientBuffer + total_bytes_written_to_client, bytes_read_from_client - total_bytes_written_to_client);
+								
+								if (errno == EINTR){
+									if (exit_flag == 1){
+										// exit gracefully
+										//printf("Exiting:  %d\n",getpid());
+										close(listen_fd); // close when finish handling the client
+										close(key_fd);
+										exit(0);
+									}
+								}
+								else if (bytes_written_to_client < 0) {
+									printf("error write() to client : %s\n", strerror(errno));
+									exit(errno);
+								}
+
+								// increment our counter
+								total_bytes_written_to_client = total_bytes_written_to_client + bytes_written_to_client;
+
+							} // finished writing everything to client
 
 					
-						// we sum the number of bytes read every time from key file - until reaching bytes_read_from_client
-						total_bytes_read_from_key = 0; 
+						} // nothing else to read from client
+					
 
-						while (total_bytes_read_from_key < bytes_read_from_client){
-							// read from key - enter the data to next avaliable location in buffer
-							bytes_read_from_key = read(key_fd, keyBuffer + total_bytes_read_from_key, bytes_read_from_client - total_bytes_read_from_key);
-							
-							if (errno == EINTR){
-								if (exit_flag == 1){
-									// exit gracefully
-									//printf("Exiting:  %d\n",getpid());
-									close(listen_fd); // close when finish handling the client
-									close(key_fd);
-									exit(EXIT_FAILURE);
-								}
-							}
-							else if ( bytes_read_from_key < 0){ // check for error in reading key
-									printf("Error while reading from key file: %s\n", strerror(errno));
-									exit(errno);
-									}
-							
-							// maybe we need to iterate on key file...
-							else if (bytes_read_from_key == 0){ // key file reached EOF
-									
-										close(key_fd);
-										key_fd = open(KEY, O_RDONLY); /* opens key file from the beggining */
-						
-					   					if( key_fd < 0 ){
-					        				printf( "Error opening key file : %s\n", strerror(errno) );
-					        				exit(errno); 
-					   					}   
-								}
-							
-							
-							else { // the reading was succesful!
-								total_bytes_read_from_key = total_bytes_read_from_key + bytes_read_from_key;
-							}
-
-						}
-
-						// now we got 'bytes_read_from_client' from key file in keyBuffer - can XOR
-						
-						// XOR the bytes from key and client
-						for (i = 0; i < bytes_read_from_client; ++i)
-								clientBuffer[i] = clientBuffer[i] ^ keyBuffer[i];
-						
-						total_bytes_written_to_client = 0; // sum the bytes we write - make sure we wrote everything
-						while (total_bytes_written_to_client < bytes_read_from_client) {
-							
-							bytes_written_to_client = write(client_connection_fd, clientBuffer + total_bytes_written_to_client, bytes_read_from_client - total_bytes_written_to_client);
-							
-							if (errno == EINTR){
-								if (exit_flag == 1){
-									// exit gracefully
-									//printf("Exiting:  %d\n",getpid());
-									close(listen_fd); // close when finish handling the client
-									close(key_fd);
-									exit(EXIT_FAILURE);
-								}
-							}
-							else if (bytes_written_to_client < 0) {
-								printf("error write() to client : %s\n", strerror(errno));
-								exit(errno);
-							}
-
-							// increment our counter
-							total_bytes_written_to_client = total_bytes_written_to_client + bytes_written_to_client;
-
-						} // finished writing everything to client
-
-				
-					} // nothing else to read from client
-				
-
-				// exit gracefully
-				//printf("FINISHED PROCESS: %d\n", getpid());
-			
+				// exit gracefully			
 				close(listen_fd); // close when finish handling the client
 				close(key_fd);
 				exit(0);
 
 			}
 			 // if we got here, that means that (process_id != 0) - we continue to iterate to get next connection
+			//printf("PARENT PROCESS ID IS:%d\n", getpid());
 			close(client_connection_fd);
 		}
 
